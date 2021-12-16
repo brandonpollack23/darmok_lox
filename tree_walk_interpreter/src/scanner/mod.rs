@@ -205,20 +205,29 @@ fn consume_string<'a, 'b>(
         .collect();
 
     let num_newlines = string_without_quotes.chars().filter(|&x| x == '\n').count();
+    let new_column = string_without_quotes
+        .rfind('\n')
+        .map(|o| string_without_quotes.len() - o);
+    println!("{:?}", new_column);
     let string_terminated = state.remaining[1..=string_without_quotes.len() + 1]
         .chars()
         .last()
         .map(|c| c == '"')
         .unwrap_or(false);
 
+    let string = format!("\"{}\"", string_without_quotes);
+    let chars_to_consume = string.len();
+
     if !string_terminated {
         return (
             Err(LoxError::UnterminatedString(state.line, state.column)),
-            state.consume_n_chars_with_newlines(string_without_quotes.len() + 1, num_newlines),
+            state.consume_n_chars_with_newlines(
+                string_without_quotes.len() + 1,
+                new_column.unwrap_or(chars_to_consume + state.column),
+                num_newlines,
+            ),
         );
     }
-    let string = format!("\"{}\"", string_without_quotes);
-    let chars_to_consume = string.len();
 
     string_without_quotes
         .unescape_string(state.line, state.column)
@@ -230,13 +239,21 @@ fn consume_string<'a, 'b>(
                     line: state.line,
                     column: state.column,
                 }),
-                state.consume_n_chars_with_newlines(chars_to_consume, num_newlines),
+                state.consume_n_chars_with_newlines(
+                    chars_to_consume,
+                    new_column.unwrap_or(chars_to_consume + state.column),
+                    num_newlines,
+                ),
             )
         })
         .unwrap_or_else(|e| {
             (
                 Err(e),
-                state.consume_n_chars_with_newlines(chars_to_consume, num_newlines),
+                state.consume_n_chars_with_newlines(
+                    chars_to_consume,
+                    new_column.unwrap_or(chars_to_consume + state.column),
+                    num_newlines,
+                ),
             )
         })
 }
@@ -358,12 +375,17 @@ impl<'a> TokenizerState<'a> {
     }
 
     fn consume_n_chars(self, n: usize) -> TokenizerState<'a> {
-        self.consume_n_chars_with_newlines(n, 0)
+        self.consume_n_chars_with_newlines(n, self.column + n, 0)
     }
 
-    fn consume_n_chars_with_newlines(self, n: usize, newlines: usize) -> TokenizerState<'a> {
+    fn consume_n_chars_with_newlines(
+        self,
+        n: usize,
+        new_column: usize,
+        newlines: usize,
+    ) -> TokenizerState<'a> {
         TokenizerState {
-            column: self.column + n,
+            column: new_column,
             remaining: &self.remaining[n..],
             line: self.line + newlines,
             ..self
@@ -394,13 +416,13 @@ static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::scanner::tokenize;
+    use crate::scanner::scan_with_whitespace;
     use crate::scanner::tokens::{LoxToken, TokenType};
     use crate::LoxResult;
 
     #[test]
     fn print() {
-        let results = tokenize("print \"this is a test string\"");
+        let results = scan_with_whitespace("print \"this is a test string\"", false);
         println!("{:?}", results);
         let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
         assert!(tokens.is_ok());
@@ -435,9 +457,120 @@ mod tests {
         )
     }
 
-    // TODO whitespace ignored
+    #[test]
+    fn print_supports_newline() {
+        let results = scan_with_whitespace(
+            r#"print "this is a
+test string""#,
+            false,
+        );
+        println!("{:?}", results);
+        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
+        assert!(tokens.is_ok());
+        assert_eq!(
+            tokens.unwrap(),
+            vec![
+                LoxToken {
+                    token_type: TokenType::Print,
+                    lexeme: "print".to_string(),
+                    line: 1,
+                    column: 1,
+                },
+                LoxToken {
+                    token_type: TokenType::Space,
+                    lexeme: " ".to_string(),
+                    line: 1,
+                    column: 6,
+                },
+                LoxToken {
+                    token_type: TokenType::String(
+                        r#"this is a
+test string"#
+                            .to_string()
+                    ),
+                    lexeme: r#""this is a
+test string""#
+                        .to_string(),
+                    line: 1,
+                    column: 7,
+                },
+                LoxToken {
+                    token_type: TokenType::EOF,
+                    lexeme: "".to_string(),
+                    line: 2,
+                    column: 12,
+                },
+            ]
+        )
+    }
 
-    // TODO string with escape chars test
+    #[test]
+    fn print_escapes() {
+        let results = scan_with_whitespace("print \"\\\\this \\tis a\\n test string\\n\"", false);
+        println!("{:?}", results);
+        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
+        assert!(tokens.is_ok());
+        assert_eq!(
+            tokens.unwrap(),
+            vec![
+                LoxToken {
+                    token_type: TokenType::Print,
+                    lexeme: "print".to_string(),
+                    line: 1,
+                    column: 1,
+                },
+                LoxToken {
+                    token_type: TokenType::Space,
+                    lexeme: " ".to_string(),
+                    line: 1,
+                    column: 6,
+                },
+                LoxToken {
+                    token_type: TokenType::String("\\\\this \\tis a\\n test string\\n".to_string()),
+                    lexeme: "\"\\\\this \\tis a\\n test string\\n\"".to_string(),
+                    line: 1,
+                    column: 7,
+                },
+                LoxToken {
+                    token_type: TokenType::EOF,
+                    lexeme: "".to_string(),
+                    line: 1,
+                    column: 38,
+                },
+            ]
+        )
+    }
+
+    #[test]
+    fn whitespace_ignored() {
+        let results = scan_with_whitespace("print \"this is a test string\"", true);
+        println!("{:?}", results);
+        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
+        assert!(tokens.is_ok());
+        assert_eq!(
+            tokens.unwrap(),
+            vec![
+                LoxToken {
+                    token_type: TokenType::Print,
+                    lexeme: "print".to_string(),
+                    line: 1,
+                    column: 1,
+                },
+                LoxToken {
+                    token_type: TokenType::String("this is a test string".to_string()),
+                    lexeme: "\"this is a test string\"".to_string(),
+                    line: 1,
+                    column: 7,
+                },
+                LoxToken {
+                    token_type: TokenType::EOF,
+                    lexeme: "".to_string(),
+                    line: 1,
+                    column: 30,
+                },
+            ]
+        )
+    }
 
     // TODO tests detect an error but continue.
 }
