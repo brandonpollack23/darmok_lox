@@ -1,6 +1,3 @@
-mod error;
-mod scanner;
-
 use std::fs::read_to_string;
 
 use anyhow;
@@ -8,6 +5,9 @@ use clap::Parser;
 use rustyline::{Config, Editor, Helper};
 
 use scanner::scan;
+
+mod error;
+mod scanner;
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -63,6 +63,10 @@ fn run(script: &str) {
     let tokens = scan(script);
 
     for token in tokens {
-        println!("{:?}", token);
+        if let Ok(t) = token {
+            println!("{:?}", t);
+        } else {
+            eprintln!("{:?}", token);
+        }
     }
 }

@@ -3,7 +3,7 @@ use regex::Regex;
 use crate::error::{LoxError, LoxResult};
 
 /// Scan the source expression and return it as a list of [LoxTokens](LoxToken)
-pub fn scan(source: &str) -> LoxResult<Vec<LoxToken>> {
+pub fn scan(source: &str) -> Vec<LoxResult<LoxToken>> {
     Tokenizer::new().tokenize(source)
 }
 
@@ -75,46 +75,92 @@ impl Tokenizer {
         Tokenizer {}
     }
 
-    fn tokenize(&self, input: &str) -> LoxResult<Vec<LoxToken>> {
-        let mut tokens = Vec::new();
+    fn tokenize(&self, input: &str) -> Vec<LoxResult<LoxToken>> {
+        let mut tokens: Vec<LoxResult<LoxToken>> = Vec::new();
         let mut tokenizer_state = TokenizerState::new(input);
 
         while tokenizer_state.remaining.len() > 0 {
-            let (token, tokenizer_state) = self.tokenize_next(&tokenizer_state)?;
+            let (token, next_state) = self.tokenize_next(&tokenizer_state);
             tokens.push(token);
+            tokenizer_state = next_state;
         }
 
-        Ok(tokens)
+        tokens
     }
 
-    fn tokenize_next<'a, 'b>(&self, state: &'a TokenizerState<'b>) -> LoxResult<(LoxToken, TokenizerState<'b>)> {
+    fn tokenize_next<'a, 'b>(
+        &self,
+        state: &'a TokenizerState<'b>,
+    ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
         let first = state.remaining.chars().nth(0).unwrap();
         match first {
-            '(' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::LeftParen)),
-            ')' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::RightParen)),
-            '{' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::LeftBrace)),
-            '}' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::RightBrace)),
-            ',' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::Comma)),
-            '.' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::Dot)),
-            '-' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::Minus)),
-            '+' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::Plus)),
-            ';' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::Semicolon)),
-            '*' =>
-                Ok(Self::consume_single_char_token(state, first, TokenType::Star)),
-            _ => Err(LoxError::UnexpectedCharacter(first, state.line, state.column)),
+            '(' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::LeftParen);
+                (Ok(token), next_state)
+            }
+            ')' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::RightParen);
+                (Ok(token), next_state)
+            }
+            '{' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::LeftBrace);
+                (Ok(token), next_state)
+            }
+            '}' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::RightBrace);
+                (Ok(token), next_state)
+            }
+            ',' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::Comma);
+                (Ok(token), next_state)
+            }
+            '.' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::Dot);
+                (Ok(token), next_state)
+            }
+            '-' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::Minus);
+                (Ok(token), next_state)
+            }
+            '+' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::Plus);
+                (Ok(token), next_state)
+            }
+            ';' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::Semicolon);
+                (Ok(token), next_state)
+            }
+            '*' => {
+                let (token, next_state) =
+                    Self::consume_single_char_token(state, first, TokenType::Star);
+                (Ok(token), next_state)
+            }
+
+            _ => (
+                Err(LoxError::UnexpectedCharacter(
+                    first,
+                    state.line,
+                    state.column,
+                )),
+                state.consume_single_char(),
+            ),
         }
     }
 
-    fn consume_single_char_token<'a, 'b>(state: &'a TokenizerState<'b>, first: char, token_type: TokenType) -> (LoxToken, TokenizerState<'b>) {
+    fn consume_single_char_token<'a, 'b>(
+        state: &'a TokenizerState<'b>,
+        first: char,
+        token_type: TokenType,
+    ) -> (LoxToken, TokenizerState<'b>) {
         (
             LoxToken {
                 token_type,
