@@ -1,7 +1,8 @@
 use crate::error::{LoxError, LoxResult};
 
-/// Scan the source expression and return it as a list of [LoxTokens](LoxToken)
+// BONUS string interpolation by making double quote a token on its own.
 
+/// Scan the source expression and return it as a list of [LoxTokens](LoxToken), dropping whitespace if requested.
 pub fn scan_with_whitespace(source: &str, remove_whitespace: bool) -> Vec<LoxResult<LoxToken>> {
     let tokens = Tokenizer::new().tokenize(source);
     if remove_whitespace {
@@ -14,6 +15,7 @@ pub fn scan_with_whitespace(source: &str, remove_whitespace: bool) -> Vec<LoxRes
     }
 }
 
+/// Scan the source expression and return it as a list of [LoxTokens](LoxToken), removing all whitespace.
 pub fn scan(source: &str) -> Vec<LoxResult<LoxToken>> {
     scan_with_whitespace(source, true)
 }
