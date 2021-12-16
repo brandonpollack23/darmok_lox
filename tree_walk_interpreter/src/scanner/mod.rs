@@ -1,4 +1,7 @@
+use crate::consume_single_char_token;
 use crate::error::{LoxError, LoxResult};
+
+mod macros;
 
 // BONUS string interpolation by making double quote a token on its own.
 
@@ -126,78 +129,22 @@ impl Tokenizer {
         let first = state.remaining.chars().nth(0).unwrap();
         match first {
             // Ignored single characters that are added for linting purposes.
-            ' ' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Space);
-                (Ok(token), next_state)
-            }
-            '\r' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::CarriageReturn);
-                (Ok(token), next_state)
-            }
-            '\n' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Linefeed);
-                (Ok(token), next_state)
-            }
-            '\t' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Tab);
-                (Ok(token), next_state)
-            }
+            ' ' => consume_single_char_token!(state, first, Space),
+            '\r' => consume_single_char_token!(state, first, CarriageReturn),
+            '\n' => consume_single_char_token!(state, first, Linefeed),
+            '\t' => consume_single_char_token!(state, first, Tab),
 
             // Unambiguous single characters.
-            '(' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::LeftParen);
-                (Ok(token), next_state)
-            }
-            ')' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::RightParen);
-                (Ok(token), next_state)
-            }
-            '{' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::LeftBrace);
-                (Ok(token), next_state)
-            }
-            '}' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::RightBrace);
-                (Ok(token), next_state)
-            }
-            ',' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Comma);
-                (Ok(token), next_state)
-            }
-            '.' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Dot);
-                (Ok(token), next_state)
-            }
-            '-' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Minus);
-                (Ok(token), next_state)
-            }
-            '+' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Plus);
-                (Ok(token), next_state)
-            }
-            ';' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Semicolon);
-                (Ok(token), next_state)
-            }
-            '*' => {
-                let (token, next_state) =
-                    Self::consume_single_char_token(state, first, TokenType::Star);
-                (Ok(token), next_state)
-            }
+            '(' => consume_single_char_token!(state, first, LeftParen),
+            ')' => consume_single_char_token!(state, first, RightParen),
+            '{' => consume_single_char_token!(state, first, LeftBrace),
+            '}' => consume_single_char_token!(state, first, RightBrace),
+            ',' => consume_single_char_token!(state, first, Comma),
+            '.' => consume_single_char_token!(state, first, Dot),
+            '-' => consume_single_char_token!(state, first, Minus),
+            '+' => consume_single_char_token!(state, first, Plus),
+            ';' => consume_single_char_token!(state, first, Semicolon),
+            '*' => consume_single_char_token!(state, first, Star),
 
             // Single characters that may have more chars
             '!' => {
@@ -210,6 +157,10 @@ impl Tokenizer {
                 (Ok(token), next_state)
             }
 
+            // Multi char tokens
+            // '"' => {
+            //     todo!()
+            // }
             _ => (
                 Err(LoxError::UnexpectedCharacter(
                     first,
