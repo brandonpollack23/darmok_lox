@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = { version = "3.0.0-rc.5", features = ["derive"] }
+anyhow = "1.0.51"
+rustyline = "9.1.1"
+
+thiserror = "1.0.30"
+regex = "1.5.4"
