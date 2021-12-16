@@ -6,6 +6,9 @@ use rustyline::{Config, Editor, Helper};
 
 use scanner::scan;
 
+use crate::error::LoxResult;
+use crate::scanner::LoxToken;
+
 mod error;
 mod scanner;
 
@@ -34,7 +37,7 @@ fn run_prompt() {
                 String::new()
             }
         };
-        run(&line)
+        run(&line, false)
     }
 }
 
@@ -55,11 +58,11 @@ fn setup_history(rl: &mut Editor<impl Helper>) {
 
 fn run_file(file_name: &str) -> anyhow::Result<()> {
     let s = read_to_string(file_name)?;
-    run(&s);
+    run(&s, false);
     Ok(())
 }
 
-fn run(script: &str) {
+fn run(script: &str, enable_linting: bool) {
     let tokens = scan(script);
 
     for token in tokens {
@@ -69,4 +72,17 @@ fn run(script: &str) {
             eprintln!("{:?}", token);
         }
     }
+}
+
+// TODO linting mode: multiple steps, first just reads token streams for token rules (double space not after newline, use of tabs, etc)
+// > handle tab (warning no tabs use spaces)
+// > handle non newline whitespace with more than one space (linter warning)
+// > warn there should be no \r\n on linux
+fn lint(file_name: &str) -> anyhow::Result<()> {
+    let script = read_to_string(file_name)?;
+    let tokens = scan(&script);
+    // let tokenizer_lint_errors = lint(tokens)?;
+    // let parser_lint_errors = lint(parse(tokens))?;
+    // then print all
+    Ok(())
 }
