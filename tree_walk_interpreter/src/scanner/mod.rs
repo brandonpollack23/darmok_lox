@@ -1,7 +1,8 @@
 use crate::consume_single_char_token;
 use crate::error::{LoxError, LoxResult};
-use crate::utils::unescape_string;
+use crate::scanner::escapable_string::UnEscapableString;
 
+mod escapable_string;
 mod macros;
 
 // BONUS string interpolation by making double quote a token on its own.
@@ -286,8 +287,8 @@ impl Tokenizer {
         }
         let string = format!("{}{}", '"', string_without_initial_quote);
 
-        let unquoted_string = string[1..string.len()].to_string();
-        unescape_string(&unquoted_string, state.line, state.column)
+        string[1..string.len()]
+            .unescape_string(state.line, state.column)
             .map(|s| {
                 (
                     Ok(LoxToken {
