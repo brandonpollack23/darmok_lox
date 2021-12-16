@@ -11,6 +11,7 @@ use crate::scanner::LoxToken;
 
 mod error;
 mod scanner;
+mod utils;
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]

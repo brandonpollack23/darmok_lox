@@ -1,5 +1,6 @@
 use crate::consume_single_char_token;
 use crate::error::{LoxError, LoxResult};
+use crate::utils::unescape_string;
 
 mod macros;
 
@@ -158,14 +159,12 @@ impl Tokenizer {
             }
 
             // Multi char tokens
-            // '"' => {
-            //     todo!()
-            // }
+            '"' => Self::consume_string(state),
             _ => (
                 Err(LoxError::UnexpectedCharacter(
-                    first,
                     state.line,
                     state.column,
+                    first,
                 )),
                 state.consume_single_char(),
             ),
@@ -259,6 +258,55 @@ impl Tokenizer {
         )
     }
 
+    // TODO NOW escape sequences \
+    fn consume_string<'a, 'b>(
+        state: &'a TokenizerState<'b>,
+    ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
+        let string_without_initial_quote: String = state
+            .remaining
+            .chars()
+            .skip(1)
+            .take_while(|&c| c != '"')
+            .collect();
+
+        let num_newlines = string_without_initial_quote
+            .chars()
+            .filter(|&x| x == '\n')
+            .count();
+        let string_terminated = string_without_initial_quote.chars().last().unwrap() == '"';
+
+        if !string_terminated {
+            return (
+                Err(LoxError::UnterminatedString(state.line, state.column)),
+                state.consume_n_chars_with_newlines(
+                    string_without_initial_quote.len() + 1,
+                    num_newlines,
+                ),
+            );
+        }
+        let string = format!("{}{}", '"', string_without_initial_quote);
+
+        let unquoted_string = string[1..string.len()].to_string();
+        unescape_string(&unquoted_string, state.line, state.column)
+            .map(|s| {
+                (
+                    Ok(LoxToken {
+                        token_type: TokenType::String,
+                        lexeme: s,
+                        line: state.line,
+                        column: state.column,
+                    }),
+                    state.consume_n_chars_with_newlines(string.len(), num_newlines),
+                )
+            })
+            .unwrap_or_else(|e| {
+                (
+                    Err(e),
+                    state.consume_n_chars_with_newlines(string.len(), num_newlines),
+                )
+            })
+    }
+
     /// Converts chars that may have another char to their lexeme to their [TokenType] when they
     /// don't.
     fn get_disambiguated_single_char_lexeme(ch: char) -> TokenType {
@@ -305,9 +353,14 @@ impl<'a> TokenizerState<'a> {
     }
 
     fn consume_n_chars(self, n: usize) -> TokenizerState<'a> {
+        self.consume_n_chars_with_newlines(n, 0)
+    }
+
+    fn consume_n_chars_with_newlines(self, n: usize, newlines: usize) -> TokenizerState<'a> {
         TokenizerState {
             column: self.column + n,
             remaining: &self.remaining[n..],
+            line: self.line + newlines,
             ..self
         }
     }

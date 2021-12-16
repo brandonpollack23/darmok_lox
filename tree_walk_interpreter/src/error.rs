@@ -4,6 +4,10 @@ pub type LoxResult<T> = Result<T, LoxError>;
 
 #[derive(Error, Clone, Debug)]
 pub enum LoxError {
-    #[error("Error at {1}:{2} Unexpected character '{0}'")]
-    UnexpectedCharacter(char, usize, usize),
+    #[error("Error at {0}:{1} Unexpected character '{2}'")]
+    UnexpectedCharacter(usize, usize, char),
+    #[error("Error at {0}:{1} String was unterminated")]
+    UnterminatedString(usize, usize),
+    #[error("Error at {0}:{1} String contained an unknown escape sequence: \"{2}\"")]
+    UnknownStringEscapeSequence(usize, usize, String),
 }
