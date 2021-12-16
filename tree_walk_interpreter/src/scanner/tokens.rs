@@ -1,4 +1,4 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LoxToken {
     pub token_type: TokenType,
     pub lexeme: String,
