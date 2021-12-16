@@ -39,3 +39,11 @@ pub fn unescape_string(string: &str, lineno: usize, columno: usize) -> LoxResult
 pub fn is_digit(d: char) -> bool {
     d >= '0' && d <= '9'
 }
+
+pub fn is_alpha(c: char) -> bool {
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_')
+}
+
+pub fn is_alpha_numeric(c: char) -> bool {
+    is_digit(c) || is_alpha(c)
+}

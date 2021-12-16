@@ -1,9 +1,15 @@
 use std::str::FromStr;
 
+#[macro_use]
+use phf::phf_map;
+
 use crate::consume_single_char_token;
 use crate::error::{LoxError, LoxResult};
 use crate::scanner::escapable_string::UnEscapableString;
-use crate::utils::is_digit;
+use crate::scanner::tokens::{LoxToken, TokenType};
+use crate::utils::{is_alpha, is_alpha_numeric, is_digit};
+
+pub mod tokens;
 
 mod escapable_string;
 mod macros;
@@ -29,84 +35,6 @@ pub fn scan(source: &str) -> Vec<LoxResult<LoxToken>> {
 }
 
 /// Tokenized representation of Lox source code
-#[derive(Clone, Debug)]
-pub struct LoxToken {
-    token_type: TokenType,
-    lexeme: String,
-    line: usize,
-    column: usize,
-}
-
-impl LoxToken {
-    fn is_whitespace(&self) -> bool {
-        match self.token_type {
-            TokenType::Space | TokenType::Linefeed | TokenType::CarriageReturn | TokenType::Tab => {
-                true
-            }
-            _ => false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum TokenType {
-    // Single character tokens.
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Slash,
-    Star,
-
-    // One or two character tokens
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-
-    // Literals
-    Identifier,
-    Bool(bool),
-    String(String),
-    Number(f64),
-
-    // Keywords
-    And,
-    Class,
-    Else,
-    False,
-    Fun,
-    For,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-
-    // Pruned tokens such as whitespace/comments that are useful for linting.
-    Space,
-    Linefeed,
-    CarriageReturn,
-    Comment,
-    Tab,
-
-    EOF,
-}
-
 /// A struct that caches the regex expressions for tokenizing
 struct Tokenizer {}
 
@@ -172,6 +100,9 @@ impl Tokenizer {
             // Multi char tokens
             '"' => Self::consume_string(state),
             d if is_digit(d) => Self::consume_digit(state),
+
+            // Keywords/identifiers, require maximal munching.
+            c if is_alpha(c) => Self::consume_identifier(state),
 
             _ => (
                 Err(LoxError::UnexpectedCharacter(
@@ -355,6 +286,32 @@ impl Tokenizer {
         )
     }
 
+    fn consume_identifier<'a, 'b>(
+        state: &'a TokenizerState<'b>,
+    ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
+        let identifier: String = state
+            .remaining
+            .chars()
+            .take_while(|&c| is_alpha_numeric(c))
+            .collect();
+
+        let token_type = KEYWORDS
+            .get(&identifier)
+            .cloned()
+            .unwrap_or(TokenType::Identifier);
+        let chars_to_consume = identifier.len();
+
+        (
+            Ok(LoxToken {
+                token_type,
+                lexeme: identifier,
+                line: state.line,
+                column: state.column,
+            }),
+            state.consume_n_chars(chars_to_consume),
+        )
+    }
+
     /// Converts chars that may have another char to their lexeme to their [TokenType] when they
     /// don't.
     fn get_disambiguated_single_char_lexeme(ch: char) -> TokenType {
@@ -424,3 +381,22 @@ impl<'a> TokenizerState<'a> {
         }
     }
 }
+
+static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
+    "and" =>    TokenType::And,
+    "class" =>  TokenType::Class,
+    "else" =>   TokenType::Else,
+    "false" =>  TokenType::False,
+    "for" =>    TokenType::For,
+    "fun" =>    TokenType::Fun,
+    "if" =>     TokenType::If,
+    "nil" =>    TokenType::Nil,
+    "or" =>     TokenType::Or,
+    "print" =>  TokenType::Print,
+    "return" => TokenType::Return,
+    "super" =>  TokenType::Super,
+    "this" =>   TokenType::This,
+    "true" =>   TokenType::True,
+    "var" =>    TokenType::Var,
+    "while" =>  TokenType::While,
+};

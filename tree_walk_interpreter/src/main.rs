@@ -7,7 +7,7 @@ use rustyline::{Config, Editor, Helper};
 use scanner::scan;
 
 use crate::error::LoxResult;
-use crate::scanner::LoxToken;
+
 
 mod error;
 mod scanner;
@@ -63,7 +63,7 @@ fn run_file(file_name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run(script: &str, enable_linting: bool) {
+fn run(script: &str, _enable_linting: bool) {
     let tokens = scan(script);
 
     for token in tokens {
@@ -81,7 +81,7 @@ fn run(script: &str, enable_linting: bool) {
 // > warn there should be no \r\n on linux
 fn lint(file_name: &str) -> anyhow::Result<()> {
     let script = read_to_string(file_name)?;
-    let tokens = scan(&script);
+    let _tokens = scan(&script);
     // let tokenizer_lint_errors = lint(tokens)?;
     // let parser_lint_errors = lint(parse(tokens))?;
     // then print all
