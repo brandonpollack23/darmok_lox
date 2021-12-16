@@ -20,7 +20,7 @@ pub fn unescape_string(string: &str, lineno: usize, columno: usize) -> LoxResult
                         lineno,
                         columnno,
                         format!("\\{}", next),
-                    ))
+                    ));
                 }
             }
         } else {
@@ -34,4 +34,8 @@ pub fn unescape_string(string: &str, lineno: usize, columno: usize) -> LoxResult
     }
 
     Ok(result)
+}
+
+pub fn is_digit(d: char) -> bool {
+    d >= '0' && d <= '9'
 }

@@ -1,6 +1,9 @@
+use std::str::FromStr;
+
 use crate::consume_single_char_token;
 use crate::error::{LoxError, LoxResult};
 use crate::scanner::escapable_string::UnEscapableString;
+use crate::utils::is_digit;
 
 mod escapable_string;
 mod macros;
@@ -45,7 +48,7 @@ impl LoxToken {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     // Single character tokens.
     LeftParen,
@@ -72,8 +75,9 @@ pub enum TokenType {
 
     // Literals
     Identifier,
-    String,
-    Number,
+    Bool(bool),
+    String(String),
+    Number(f64),
 
     // Keywords
     And,
@@ -121,6 +125,12 @@ impl Tokenizer {
             tokenizer_state = next_state;
         }
 
+        tokens.push(Ok(LoxToken {
+            token_type: TokenType::EOF,
+            lexeme: "".to_string(),
+            line: tokenizer_state.line,
+            column: tokenizer_state.column,
+        }));
         tokens
     }
 
@@ -161,6 +171,8 @@ impl Tokenizer {
 
             // Multi char tokens
             '"' => Self::consume_string(state),
+            d if is_digit(d) => Self::consume_digit(state),
+
             _ => (
                 Err(LoxError::UnexpectedCharacter(
                     state.line,
@@ -259,7 +271,6 @@ impl Tokenizer {
         )
     }
 
-    // TODO NOW escape sequences \
     fn consume_string<'a, 'b>(
         state: &'a TokenizerState<'b>,
     ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
@@ -286,26 +297,62 @@ impl Tokenizer {
             );
         }
         let string = format!("{}{}", '"', string_without_initial_quote);
+        let chars_to_consume = string.len();
 
         string[1..string.len()]
             .unescape_string(state.line, state.column)
             .map(|s| {
                 (
                     Ok(LoxToken {
-                        token_type: TokenType::String,
-                        lexeme: s,
+                        token_type: TokenType::String(s),
+                        lexeme: string,
                         line: state.line,
                         column: state.column,
                     }),
-                    state.consume_n_chars_with_newlines(string.len(), num_newlines),
+                    state.consume_n_chars_with_newlines(chars_to_consume, num_newlines),
                 )
             })
             .unwrap_or_else(|e| {
                 (
                     Err(e),
-                    state.consume_n_chars_with_newlines(string.len(), num_newlines),
+                    state.consume_n_chars_with_newlines(chars_to_consume, num_newlines),
                 )
             })
+    }
+
+    // BONUS: support numbers without 0. such as .5
+    fn consume_digit<'a, 'b>(
+        state: &'a TokenizerState<'b>,
+    ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
+        let mut result: String = state
+            .remaining
+            .chars()
+            .take_while(|&d| is_digit(d))
+            .collect();
+        if Self::nth_char_matches(state, result.len(), '.')
+            && Self::nth_char_matches_fn(state, result.len() + 1, is_digit)
+        {
+            result.push('.');
+            result.extend(
+                state.remaining[result.len() + 1..]
+                    .chars()
+                    .take_while(|&d| is_digit(d)),
+            );
+        }
+
+        let chars_to_consume = result.len();
+        let parsed_result = f64::from_str(&result);
+        (
+            parsed_result
+                .map(|n| LoxToken {
+                    token_type: TokenType::Number(n),
+                    lexeme: result,
+                    line: state.line,
+                    column: state.column,
+                })
+                .map_err(|e| LoxError::UnableToParseNumber(state.line, state.column, e)),
+            state.consume_n_chars(chars_to_consume),
+        )
     }
 
     /// Converts chars that may have another char to their lexeme to their [TokenType] when they
@@ -320,8 +367,19 @@ impl Tokenizer {
         }
     }
 
+    fn nth_char_matches_fn<F>(state: &TokenizerState, n: usize, f: F) -> bool
+    where
+        F: FnOnce(char) -> bool,
+    {
+        !state.remaining.len() > n && f(state.remaining.chars().nth(n).unwrap())
+    }
+
+    fn nth_char_matches(state: &TokenizerState, n: usize, ch: char) -> bool {
+        Self::nth_char_matches_fn(state, n, |c| c == ch)
+    }
+
     fn second_char_matches(state: &TokenizerState, ch: char) -> bool {
-        !state.remaining.len() > 1 && state.remaining.chars().nth(1).unwrap() == ch
+        Self::nth_char_matches(state, 1, ch)
     }
 }
 

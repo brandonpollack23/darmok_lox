@@ -1,3 +1,5 @@
+use std::num::ParseFloatError;
+
 use thiserror::Error;
 
 pub type LoxResult<T> = Result<T, LoxError>;
@@ -10,4 +12,7 @@ pub enum LoxError {
     UnterminatedString(usize, usize),
     #[error("Error at {0}:{1} String contained an unknown escape sequence: \"{2}\"")]
     UnknownStringEscapeSequence(usize, usize, String),
+
+    #[error("Error at {0}:{1} Unable to Parse float: {2:?}")]
+    UnableToParseNumber(usize, usize, ParseFloatError),
 }
