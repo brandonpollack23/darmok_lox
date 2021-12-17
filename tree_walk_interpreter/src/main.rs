@@ -1,13 +1,11 @@
 use std::fs::read_to_string;
 
-use anyhow;
 use clap::Parser;
 use rustyline::{Config, Editor, Helper};
 
 use scanner::scan;
 
 use crate::error::LoxResult;
-
 
 mod error;
 mod scanner;

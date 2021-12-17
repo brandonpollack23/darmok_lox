@@ -40,14 +40,14 @@ fn tokenize(input: &str) -> Vec<LoxResult<LoxToken>> {
     let mut tokens: Vec<LoxResult<LoxToken>> = Vec::new();
     let mut tokenizer_state = TokenizerState::new(input);
 
-    while tokenizer_state.remaining.len() > 0 {
+    while !tokenizer_state.remaining.is_empty() {
         let (token, next_state) = tokenize_next(&tokenizer_state);
         tokens.push(token);
         tokenizer_state = next_state;
     }
 
     tokens.push(Ok(LoxToken {
-        token_type: TokenType::EOF,
+        token_type: TokenType::Eof,
         lexeme: "".to_string(),
         line: tokenizer_state.line,
         column: tokenizer_state.column,
@@ -58,7 +58,7 @@ fn tokenize(input: &str) -> Vec<LoxResult<LoxToken>> {
 fn tokenize_next<'a, 'b>(
     state: &'a TokenizerState<'b>,
 ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
-    let first = state.remaining.chars().nth(0).unwrap();
+    let first = state.remaining.chars().next().unwrap();
     match first {
         // Ignored single characters that are added for linting purposes.
         ' ' => consume_single_char_token!(state, first, Space),
@@ -215,7 +215,7 @@ fn consume_block_comment<'a, 'b>(state: &'a TokenizerState<'b>) -> (LoxToken, To
             comment_block.push('/');
             let chars_to_consume = comment_block.len();
             let newlines = comment_block.lines().count() - 1;
-            let new_column = to_new_column_offset(state, &mut comment_block, chars_to_consume);
+            let new_column = to_new_column_offset(state, &comment_block, chars_to_consume);
             return (
                 LoxToken {
                     token_type: TokenType::BlockComment,
@@ -357,8 +357,7 @@ fn get_disambiguated_single_char_lexeme(ch: char) -> TokenType {
 }
 
 fn chars_in_last_line(lexeme: &str) -> Option<usize> {
-    let new_column = lexeme.rfind('\n').map(|o| lexeme.len() - o);
-    new_column
+    lexeme.rfind('\n').map(|o| lexeme.len() - o)
 }
 
 fn to_new_column_offset(state: &TokenizerState, lexeme: &str, chars_to_consume: usize) -> usize {
@@ -422,7 +421,6 @@ impl<'a> TokenizerState<'a> {
             column: new_column,
             remaining: &self.remaining[n..],
             line: self.line + newlines,
-            ..self
         }
     }
 }
@@ -481,7 +479,7 @@ mod tests {
                     column: 7,
                 },
                 LoxToken {
-                    token_type: TokenType::EOF,
+                    token_type: TokenType::Eof,
                     lexeme: "".to_string(),
                     line: 1,
                     column: 30,
@@ -533,7 +531,7 @@ test string""#
                     column: 13,
                 },
                 LoxToken {
-                    token_type: TokenType::EOF,
+                    token_type: TokenType::Eof,
                     lexeme: "".to_string(),
                     line: 2,
                     column: 14,
@@ -569,7 +567,7 @@ test string""#
                     column: 7,
                 },
                 LoxToken {
-                    token_type: TokenType::EOF,
+                    token_type: TokenType::Eof,
                     lexeme: "".to_string(),
                     line: 1,
                     column: 38,
@@ -599,7 +597,7 @@ test string""#
                     column: 7,
                 },
                 LoxToken {
-                    token_type: TokenType::EOF,
+                    token_type: TokenType::Eof,
                     lexeme: "".to_string(),
                     line: 1,
                     column: 30,
@@ -629,7 +627,7 @@ test string""#
                     column: 1,
                 },
                 LoxToken {
-                    token_type: TokenType::EOF,
+                    token_type: TokenType::Eof,
                     lexeme: "".to_string(),
                     line: 2,
                     column: 23,
@@ -659,7 +657,7 @@ is a test string*/"#
                     column: 1,
                 },
                 LoxToken {
-                    token_type: TokenType::EOF,
+                    token_type: TokenType::Eof,
                     lexeme: "".to_string(),
                     line: 2,
                     column: 19,
@@ -667,6 +665,8 @@ is a test string*/"#
             ]
         )
     }
+
+    // TODO tests for each token type, in their own subdir (and move these)
 
     // TODO tests detect an error but continue.
 }

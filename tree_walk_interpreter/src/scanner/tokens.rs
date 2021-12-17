@@ -73,5 +73,5 @@ pub enum TokenType {
     Comment,
     Tab,
 
-    EOF,
+    Eof,
 }
