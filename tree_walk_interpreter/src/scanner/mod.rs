@@ -169,18 +169,9 @@ fn consume_lexeme_beginning_with_forward_slash<'a, 'b>(
     state: &'a TokenizerState<'b>,
 ) -> (LoxToken, TokenizerState<'b>) {
     if second_char_matches(state, '/') {
-        // This is a line comment
-        let comment_line: String = state.remaining.chars().take_while(|&c| c != '\n').collect();
-        let comment_length = comment_line.len();
-        return (
-            LoxToken {
-                token_type: TokenType::Comment,
-                lexeme: comment_line,
-                line: state.line,
-                column: state.column,
-            },
-            state.consume_n_chars(comment_length),
-        );
+        return consume_line_comment(state);
+    } else if second_char_matches(state, '*') {
+        return consume_block_comment(state);
     }
 
     (
@@ -194,6 +185,51 @@ fn consume_lexeme_beginning_with_forward_slash<'a, 'b>(
     )
 }
 
+fn consume_line_comment<'a, 'b>(state: &'a TokenizerState<'b>) -> (LoxToken, TokenizerState<'b>) {
+    // This is a line comment
+    let comment_line: String = state.remaining.chars().take_while(|&c| c != '\n').collect();
+    let comment_length = comment_line.len();
+    return (
+        LoxToken {
+            token_type: TokenType::Comment,
+            lexeme: comment_line,
+            line: state.line,
+            column: state.column,
+        },
+        state.consume_n_chars(comment_length),
+    );
+}
+
+fn consume_block_comment<'a, 'b>(state: &'a TokenizerState<'b>) -> (LoxToken, TokenizerState<'b>) {
+    let mut comment_block = "/*".to_string();
+    let mut offset = 2usize;
+    loop {
+        comment_block.extend(
+            state
+                .remaining
+                .chars()
+                .skip(offset)
+                .take_while(|&c| c != '/'),
+        );
+        if nth_char_matches(state, comment_block.len() - 1, '*') {
+            comment_block.push('/');
+            let chars_to_consume = comment_block.len();
+            let newlines = comment_block.lines().count() - 1;
+            let new_column = to_new_column_offset(state, &mut comment_block, chars_to_consume);
+            return (
+                LoxToken {
+                    token_type: TokenType::BlockComment,
+                    lexeme: comment_block,
+                    line: state.line,
+                    column: state.column,
+                },
+                state.consume_n_chars_with_newlines(chars_to_consume, new_column, newlines),
+            );
+        }
+        offset = comment_block.len();
+    }
+}
+
 fn consume_string<'a, 'b>(
     state: &'a TokenizerState<'b>,
 ) -> (LoxResult<LoxToken>, TokenizerState<'b>) {
@@ -204,11 +240,8 @@ fn consume_string<'a, 'b>(
         .take_while(|&c| c != '"')
         .collect();
 
-    let num_newlines = string_without_quotes.chars().filter(|&x| x == '\n').count();
-    let new_column = string_without_quotes
-        .rfind('\n')
-        .map(|o| string_without_quotes.len() - o);
-    println!("{:?}", new_column);
+    let num_newlines = string_without_quotes.lines().count() - 1;
+    let new_column = chars_in_last_line(&string_without_quotes);
     let string_terminated = state.remaining[1..=string_without_quotes.len() + 1]
         .chars()
         .last()
@@ -217,13 +250,14 @@ fn consume_string<'a, 'b>(
 
     let string = format!("\"{}\"", string_without_quotes);
     let chars_to_consume = string.len();
+    let new_column_offset = to_new_column_offset(state, &string, chars_to_consume);
 
     if !string_terminated {
         return (
             Err(LoxError::UnterminatedString(state.line, state.column)),
             state.consume_n_chars_with_newlines(
                 string_without_quotes.len() + 1,
-                new_column.unwrap_or(chars_to_consume + state.column),
+                new_column_offset,
                 num_newlines,
             ),
         );
@@ -241,7 +275,7 @@ fn consume_string<'a, 'b>(
                 }),
                 state.consume_n_chars_with_newlines(
                     chars_to_consume,
-                    new_column.unwrap_or(chars_to_consume + state.column),
+                    new_column_offset,
                     num_newlines,
                 ),
             )
@@ -251,7 +285,7 @@ fn consume_string<'a, 'b>(
                 Err(e),
                 state.consume_n_chars_with_newlines(
                     chars_to_consume,
-                    new_column.unwrap_or(chars_to_consume + state.column),
+                    new_column_offset,
                     num_newlines,
                 ),
             )
@@ -331,11 +365,20 @@ fn get_disambiguated_single_char_lexeme(ch: char) -> TokenType {
     }
 }
 
+fn chars_in_last_line(lexeme: &str) -> Option<usize> {
+    let new_column = lexeme.rfind('\n').map(|o| lexeme.len() - o);
+    new_column
+}
+
+fn to_new_column_offset(state: &TokenizerState, lexeme: &str, chars_to_consume: usize) -> usize {
+    chars_in_last_line(lexeme).unwrap_or(state.column + chars_to_consume)
+}
+
 fn nth_char_matches_fn<F>(state: &TokenizerState, n: usize, f: F) -> bool
 where
     F: FnOnce(char) -> bool,
 {
-    !state.remaining.len() > n && f(state.remaining.chars().nth(n).unwrap())
+    n < state.remaining.len() && f(state.remaining.chars().nth(n).unwrap())
 }
 
 fn nth_char_matches(state: &TokenizerState, n: usize, ch: char) -> bool {
@@ -423,7 +466,6 @@ mod tests {
     #[test]
     fn print() {
         let results = scan_with_whitespace("print \"this is a test string\"", false);
-        println!("{:?}", results);
         let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
         assert!(tokens.is_ok());
         assert_eq!(
@@ -461,10 +503,9 @@ mod tests {
     fn print_supports_newline() {
         let results = scan_with_whitespace(
             r#"print "this is a
-test string""#,
+test string" "#,
             false,
         );
-        println!("{:?}", results);
         let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
         assert!(tokens.is_ok());
         assert_eq!(
@@ -495,10 +536,16 @@ test string""#
                     column: 7,
                 },
                 LoxToken {
+                    token_type: TokenType::Space,
+                    lexeme: " ".to_string(),
+                    line: 2,
+                    column: 13,
+                },
+                LoxToken {
                     token_type: TokenType::EOF,
                     lexeme: "".to_string(),
                     line: 2,
-                    column: 12,
+                    column: 14,
                 },
             ]
         )
@@ -507,7 +554,6 @@ test string""#
     #[test]
     fn print_escapes() {
         let results = scan_with_whitespace("print \"\\\\this \\tis a\\n test string\\n\"", false);
-        println!("{:?}", results);
         let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
         assert!(tokens.is_ok());
         assert_eq!(
@@ -544,7 +590,6 @@ test string""#
     #[test]
     fn whitespace_ignored() {
         let results = scan_with_whitespace("print \"this is a test string\"", true);
-        println!("{:?}", results);
         let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
         assert!(tokens.is_ok());
         assert_eq!(
@@ -567,6 +612,66 @@ test string""#
                     lexeme: "".to_string(),
                     line: 1,
                     column: 30,
+                },
+            ]
+        )
+    }
+
+    #[test]
+    fn comment() {
+        let results = scan_with_whitespace("// line comment yo 123\n//another line comment", true);
+        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
+        assert!(tokens.is_ok());
+        assert_eq!(
+            tokens.unwrap(),
+            vec![
+                LoxToken {
+                    token_type: TokenType::Comment,
+                    lexeme: "// line comment yo 123".to_string(),
+                    line: 1,
+                    column: 1,
+                },
+                LoxToken {
+                    token_type: TokenType::Comment,
+                    lexeme: "//another line comment".to_string(),
+                    line: 2,
+                    column: 1,
+                },
+                LoxToken {
+                    token_type: TokenType::EOF,
+                    lexeme: "".to_string(),
+                    line: 2,
+                    column: 23,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn block_comment() {
+        let results = scan_with_whitespace(
+            r#"/*print this
+is a test string*/"#,
+            true,
+        );
+        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
+        assert!(tokens.is_ok());
+        assert_eq!(
+            tokens.unwrap(),
+            vec![
+                LoxToken {
+                    token_type: TokenType::BlockComment,
+                    lexeme: r#"/*print this
+is a test string*/"#
+                        .to_string(),
+                    line: 1,
+                    column: 1,
+                },
+                LoxToken {
+                    token_type: TokenType::EOF,
+                    lexeme: "".to_string(),
+                    line: 2,
+                    column: 19,
                 },
             ]
         )

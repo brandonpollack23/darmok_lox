@@ -69,6 +69,7 @@ pub enum TokenType {
     Space,
     Linefeed,
     CarriageReturn,
+    BlockComment,
     Comment,
     Tab,
 
