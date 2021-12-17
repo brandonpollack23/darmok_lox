@@ -8,6 +8,9 @@ pub type LoxResult<T> = Result<T, LoxError>;
 pub enum LoxError {
     #[error("{0:?}")]
     ScannerError(#[from] ScannerError),
+
+    #[error("{0:?}")]
+    LinterError(#[from] LinterError),
 }
 
 #[derive(Error, Clone, Debug, PartialEq)]
@@ -21,4 +24,10 @@ pub enum ScannerError {
 
     #[error("Error at {0}:{1} Unable to Parse float: {2:?}")]
     UnableToParseNumber(usize, usize, ParseFloatError),
+}
+
+#[derive(Error, Clone, Debug, PartialEq)]
+pub enum LinterError {
+    #[error("Linter Error {0}:{1} More than one space detected, standard style is to only have one space")]
+    DoubleSpaceDetected(usize, usize),
 }

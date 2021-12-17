@@ -5,9 +5,12 @@ use rustyline::{Config, Editor, Helper};
 
 use scanner::scan;
 
-use crate::error::LoxResult;
+use crate::error::LinterError;
+use crate::error::{LoxError, LoxResult};
+use crate::scanner::tokens::{LoxToken, TokenType};
 
 mod error;
+mod linter;
 mod scanner;
 mod utils;
 
@@ -71,19 +74,4 @@ fn run(script: &str, _enable_linting: bool) {
             eprintln!("{:?}", token);
         }
     }
-}
-
-// TODO linting mode: multiple steps, first just reads token streams for token rules (double space not after newline, use of tabs, etc)
-// > handle tab (warning no tabs use spaces)
-// > handle non newline whitespace with more than one space (linter warning)
-// > warn there should be no \r\n on linux
-fn lint(file_name: &str) -> anyhow::Result<()> {
-    let script = read_to_string(file_name)?;
-    let _tokens = scan(&script);
-
-    // This obviously not complete, just serves as an example
-    // let tokenizer_lint_errors = lint(tokens)?;
-    // let parser_lint_errors = lint(parse(tokens))?;
-    // then print all
-    Ok(())
 }

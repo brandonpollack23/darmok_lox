@@ -1,4 +1,4 @@
-use crate::error::{LoxError, ScannerError};
+use crate::error::ScannerError;
 use crate::LoxResult;
 
 // BONUS: unicode values \u

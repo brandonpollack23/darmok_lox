@@ -4,7 +4,6 @@ use crate::error::LoxError;
 use crate::error::ScannerError::{UnexpectedCharacter, UnterminatedString};
 use crate::scanner::scan_with_whitespace;
 use crate::scanner::tokens::{LoxToken, TokenType};
-use crate::LoxResult;
 
 #[test]
 fn unexpected_char() {
