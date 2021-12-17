@@ -8,10 +8,12 @@ use crate::scanner::escapable_string::UnEscapableString;
 use crate::scanner::tokens::{LoxToken, TokenType};
 use crate::utils::{is_alpha, is_alpha_numeric, is_digit};
 
-pub mod tokens;
-
 mod escapable_string;
 mod macros;
+pub mod tokens;
+
+#[cfg(test)]
+mod tests;
 
 // BONUS string interpolation by making double quote a token on its own.
 
@@ -295,12 +297,11 @@ fn consume_digit<'a, 'b>(
     if nth_char_matches(state, result.len(), '.')
         && nth_char_matches_fn(state, result.len() + 1, is_digit)
     {
+        let after_dot = state.remaining[(result.len() + 1)..]
+            .chars()
+            .take_while(|&d| is_digit(d));
         result.push('.');
-        result.extend(
-            state.remaining[result.len() + 1..]
-                .chars()
-                .take_while(|&d| is_digit(d)),
-        );
+        result.extend(after_dot);
     }
 
     let chars_to_consume = result.len();
@@ -443,230 +444,3 @@ static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "var" =>    TokenType::Var,
     "while" =>  TokenType::While,
 };
-
-#[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-
-    use crate::scanner::scan_with_whitespace;
-    use crate::scanner::tokens::{LoxToken, TokenType};
-    use crate::LoxResult;
-
-    #[test]
-    fn print() {
-        let results = scan_with_whitespace("print \"this is a test string\"", false);
-        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
-        assert!(tokens.is_ok());
-        assert_eq!(
-            tokens.unwrap(),
-            vec![
-                LoxToken {
-                    token_type: TokenType::Print,
-                    lexeme: "print".to_string(),
-                    line: 1,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::Space,
-                    lexeme: " ".to_string(),
-                    line: 1,
-                    column: 6,
-                },
-                LoxToken {
-                    token_type: TokenType::String("this is a test string".to_string()),
-                    lexeme: "\"this is a test string\"".to_string(),
-                    line: 1,
-                    column: 7,
-                },
-                LoxToken {
-                    token_type: TokenType::Eof,
-                    lexeme: "".to_string(),
-                    line: 1,
-                    column: 30,
-                },
-            ]
-        )
-    }
-
-    #[test]
-    fn print_supports_newline() {
-        let results = scan_with_whitespace(
-            r#"print "this is a
-test string" "#,
-            false,
-        );
-        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
-        assert!(tokens.is_ok());
-        assert_eq!(
-            tokens.unwrap(),
-            vec![
-                LoxToken {
-                    token_type: TokenType::Print,
-                    lexeme: "print".to_string(),
-                    line: 1,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::Space,
-                    lexeme: " ".to_string(),
-                    line: 1,
-                    column: 6,
-                },
-                LoxToken {
-                    token_type: TokenType::String(
-                        r#"this is a
-test string"#
-                            .to_string()
-                    ),
-                    lexeme: r#""this is a
-test string""#
-                        .to_string(),
-                    line: 1,
-                    column: 7,
-                },
-                LoxToken {
-                    token_type: TokenType::Space,
-                    lexeme: " ".to_string(),
-                    line: 2,
-                    column: 13,
-                },
-                LoxToken {
-                    token_type: TokenType::Eof,
-                    lexeme: "".to_string(),
-                    line: 2,
-                    column: 14,
-                },
-            ]
-        )
-    }
-
-    #[test]
-    fn print_escapes() {
-        let results = scan_with_whitespace("print \"\\\\this \\tis a\\n test string\\n\"", false);
-        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
-        assert!(tokens.is_ok());
-        assert_eq!(
-            tokens.unwrap(),
-            vec![
-                LoxToken {
-                    token_type: TokenType::Print,
-                    lexeme: "print".to_string(),
-                    line: 1,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::Space,
-                    lexeme: " ".to_string(),
-                    line: 1,
-                    column: 6,
-                },
-                LoxToken {
-                    token_type: TokenType::String("\\\\this \\tis a\\n test string\\n".to_string()),
-                    lexeme: "\"\\\\this \\tis a\\n test string\\n\"".to_string(),
-                    line: 1,
-                    column: 7,
-                },
-                LoxToken {
-                    token_type: TokenType::Eof,
-                    lexeme: "".to_string(),
-                    line: 1,
-                    column: 38,
-                },
-            ]
-        )
-    }
-
-    #[test]
-    fn whitespace_ignored() {
-        let results = scan_with_whitespace("print \"this is a test string\"", true);
-        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
-        assert!(tokens.is_ok());
-        assert_eq!(
-            tokens.unwrap(),
-            vec![
-                LoxToken {
-                    token_type: TokenType::Print,
-                    lexeme: "print".to_string(),
-                    line: 1,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::String("this is a test string".to_string()),
-                    lexeme: "\"this is a test string\"".to_string(),
-                    line: 1,
-                    column: 7,
-                },
-                LoxToken {
-                    token_type: TokenType::Eof,
-                    lexeme: "".to_string(),
-                    line: 1,
-                    column: 30,
-                },
-            ]
-        )
-    }
-
-    #[test]
-    fn comment() {
-        let results = scan_with_whitespace("// line comment yo 123\n//another line comment", true);
-        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
-        assert!(tokens.is_ok());
-        assert_eq!(
-            tokens.unwrap(),
-            vec![
-                LoxToken {
-                    token_type: TokenType::Comment,
-                    lexeme: "// line comment yo 123".to_string(),
-                    line: 1,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::Comment,
-                    lexeme: "//another line comment".to_string(),
-                    line: 2,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::Eof,
-                    lexeme: "".to_string(),
-                    line: 2,
-                    column: 23,
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn block_comment() {
-        let results = scan_with_whitespace(
-            r#"/*print this
-is a test string*/"#,
-            true,
-        );
-        let tokens: LoxResult<Vec<LoxToken>> = results.into_iter().collect();
-        assert!(tokens.is_ok());
-        assert_eq!(
-            tokens.unwrap(),
-            vec![
-                LoxToken {
-                    token_type: TokenType::BlockComment,
-                    lexeme: r#"/*print this
-is a test string*/"#
-                        .to_string(),
-                    line: 1,
-                    column: 1,
-                },
-                LoxToken {
-                    token_type: TokenType::Eof,
-                    lexeme: "".to_string(),
-                    line: 2,
-                    column: 19,
-                },
-            ]
-        )
-    }
-
-    // TODO tests for each token type, in their own subdir (and move these)
-
-    // TODO tests detect an error but continue.
-}

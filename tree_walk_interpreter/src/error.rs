@@ -4,7 +4,7 @@ use thiserror::Error;
 
 pub type LoxResult<T> = Result<T, LoxError>;
 
-#[derive(Error, Clone, Debug)]
+#[derive(Error, Clone, Debug, PartialEq)]
 pub enum LoxError {
     #[error("Error at {0}:{1} Unexpected character '{2}'")]
     UnexpectedCharacter(usize, usize, char),
