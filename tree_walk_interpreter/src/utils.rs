@@ -1,4 +1,4 @@
-use crate::error::LoxError;
+use crate::error::{LoxError, ScannerError};
 use crate::LoxResult;
 
 // BONUS: unicode values \u
@@ -16,11 +16,12 @@ pub fn unescape_string(string: &str, lineno: usize, columno: usize) -> LoxResult
                 'n' => result.push('\n'),
                 't' => result.push('\t'),
                 _ => {
-                    return Err(LoxError::UnknownStringEscapeSequence(
+                    return Err(ScannerError::UnknownStringEscapeSequence(
                         lineno,
                         columnno,
                         format!("\\{}", next),
-                    ));
+                    )
+                    .into());
                 }
             }
         } else {

@@ -6,6 +6,12 @@ pub type LoxResult<T> = Result<T, LoxError>;
 
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum LoxError {
+    #[error("{0:?}")]
+    ScannerError(#[from] ScannerError),
+}
+
+#[derive(Error, Clone, Debug, PartialEq)]
+pub enum ScannerError {
     #[error("Error at {0}:{1} Unexpected character '{2}'")]
     UnexpectedCharacter(usize, usize, char),
     #[error("Error at {0}:{1} String was unterminated")]

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use phf::phf_map;
 
 use crate::consume_single_char_token;
-use crate::error::{LoxError, LoxResult};
+use crate::error::{LoxResult, ScannerError};
 use crate::scanner::escapable_string::UnEscapableString;
 use crate::scanner::tokens::{LoxToken, TokenType};
 use crate::utils::{is_alpha, is_alpha_numeric, is_digit};
@@ -99,11 +99,7 @@ fn tokenize_next<'a, 'b>(
         c if is_alpha(c) => consume_identifier(state),
 
         _ => (
-            Err(LoxError::UnexpectedCharacter(
-                state.line,
-                state.column,
-                first,
-            )),
+            Err(ScannerError::UnexpectedCharacter(state.line, state.column, first).into()),
             state.consume_single_char(),
         ),
     }
@@ -243,11 +239,7 @@ fn consume_string<'a, 'b>(
         .collect();
 
     let num_newlines = string_without_quotes.lines().count() - 1;
-    let string_terminated = state.remaining[1..=string_without_quotes.len() + 1]
-        .chars()
-        .last()
-        .map(|c| c == '"')
-        .unwrap_or(false);
+    let string_terminated = nth_char_matches(state, string_without_quotes.len() + 1, '"');
 
     let string = format!("\"{}\"", string_without_quotes);
     let chars_to_consume = string.len();
@@ -255,7 +247,7 @@ fn consume_string<'a, 'b>(
 
     if !string_terminated {
         return (
-            Err(LoxError::UnterminatedString(state.line, state.column)),
+            Err(ScannerError::UnterminatedString(state.line, state.column).into()),
             state.consume_n_chars_with_newlines(
                 string_without_quotes.len() + 1,
                 new_column,
@@ -314,7 +306,7 @@ fn consume_digit<'a, 'b>(
                 line: state.line,
                 column: state.column,
             })
-            .map_err(|e| LoxError::UnableToParseNumber(state.line, state.column, e)),
+            .map_err(|e| ScannerError::UnableToParseNumber(state.line, state.column, e).into()),
         state.consume_n_chars(chars_to_consume),
     )
 }

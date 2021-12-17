@@ -1,6 +1,7 @@
 use pretty_assertions::assert_eq;
 
 use crate::error::LoxError;
+use crate::error::ScannerError::{UnexpectedCharacter, UnterminatedString};
 use crate::scanner::scan_with_whitespace;
 use crate::scanner::tokens::{LoxToken, TokenType};
 use crate::LoxResult;
@@ -23,7 +24,7 @@ fn unexpected_char() {
                 line: 1,
                 column: 4,
             }),
-            Err(LoxError::UnexpectedCharacter(1, 5, '~')),
+            Err(LoxError::ScannerError(UnexpectedCharacter(1, 5, '~'))),
             Ok(LoxToken {
                 token_type: TokenType::Space,
                 lexeme: " ".to_string(),
@@ -64,13 +65,13 @@ fn unterminated_string() {
     assert_eq!(
         results,
         vec![
-            Err(LoxError::UnterminatedString(1, 1)),
+            Err(LoxError::ScannerError(UnterminatedString(1, 1))),
             Ok(LoxToken {
                 token_type: TokenType::Eof,
                 lexeme: "".to_string(),
                 line: 1,
-                column: 8,
-            })
+                column: 10,
+            }),
         ]
     );
 }

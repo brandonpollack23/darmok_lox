@@ -80,6 +80,8 @@ fn run(script: &str, _enable_linting: bool) {
 fn lint(file_name: &str) -> anyhow::Result<()> {
     let script = read_to_string(file_name)?;
     let _tokens = scan(&script);
+
+    // This obviously not complete, just serves as an example
     // let tokenizer_lint_errors = lint(tokens)?;
     // let parser_lint_errors = lint(parse(tokens))?;
     // then print all
