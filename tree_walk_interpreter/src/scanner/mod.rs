@@ -241,7 +241,6 @@ fn consume_string<'a, 'b>(
         .collect();
 
     let num_newlines = string_without_quotes.lines().count() - 1;
-    let new_column = chars_in_last_line(&string_without_quotes);
     let string_terminated = state.remaining[1..=string_without_quotes.len() + 1]
         .chars()
         .last()
@@ -250,14 +249,14 @@ fn consume_string<'a, 'b>(
 
     let string = format!("\"{}\"", string_without_quotes);
     let chars_to_consume = string.len();
-    let new_column_offset = to_new_column_offset(state, &string, chars_to_consume);
+    let new_column = to_new_column_offset(state, &string, chars_to_consume);
 
     if !string_terminated {
         return (
             Err(LoxError::UnterminatedString(state.line, state.column)),
             state.consume_n_chars_with_newlines(
                 string_without_quotes.len() + 1,
-                new_column_offset,
+                new_column,
                 num_newlines,
             ),
         );
@@ -273,21 +272,13 @@ fn consume_string<'a, 'b>(
                     line: state.line,
                     column: state.column,
                 }),
-                state.consume_n_chars_with_newlines(
-                    chars_to_consume,
-                    new_column_offset,
-                    num_newlines,
-                ),
+                state.consume_n_chars_with_newlines(chars_to_consume, new_column, num_newlines),
             )
         })
         .unwrap_or_else(|e| {
             (
                 Err(e),
-                state.consume_n_chars_with_newlines(
-                    chars_to_consume,
-                    new_column_offset,
-                    num_newlines,
-                ),
+                state.consume_n_chars_with_newlines(chars_to_consume, new_column, num_newlines),
             )
         })
 }
