@@ -1,6 +1,7 @@
 use std::fs::read_to_string;
 
 use clap::Parser;
+use rustyline::error::ReadlineError;
 use rustyline::{Config, Editor, Helper};
 
 use scanner::scan;
@@ -17,16 +18,17 @@ mod utils;
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
 struct Args {
-    script: Option<String>,
+    file_names: Vec<String>,
 }
 
 fn main() {
     let args = Args::parse();
 
-    match args.script {
-        Some(file_name) => run_file(&file_name).unwrap(),
-        None => run_prompt(),
+    if args.file_names.is_empty() {
+        run_prompt();
     }
+
+    run_files(&args.file_names).unwrap();
 }
 
 fn run_prompt() {
@@ -34,6 +36,10 @@ fn run_prompt() {
     loop {
         let line = match rl.readline("> ") {
             Ok(l) => l,
+            Err(ReadlineError::Eof) => {
+                println!("Goodbye!");
+                return;
+            }
             Err(err) => {
                 eprintln!("Error reading line: {:?}", err);
                 String::new()
@@ -51,16 +57,17 @@ fn setup_rustyline() -> Editor<()> {
 
 fn setup_history(rl: &mut Editor<impl Helper>) {
     if let Err(e) = rl.load_history(".repl_history") {
-        eprintln!("Error loading repl history: {}", e);
         if let Err(e) = std::fs::File::create(".repl_history") {
             eprintln!("Cannot create history file! {}", e)
         }
     }
 }
 
-fn run_file(file_name: &str) -> anyhow::Result<()> {
-    let s = read_to_string(file_name)?;
-    run(&s, false);
+fn run_files(file_names: &[String]) -> anyhow::Result<()> {
+    for file_name in file_names {
+        let s = read_to_string(file_name)?;
+        run(&s, false);
+    }
     Ok(())
 }
 

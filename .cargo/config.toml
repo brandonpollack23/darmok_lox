@@ -1,0 +1,4 @@
+# Uncomment to use faster lld (doesn't work on mac as of writing)
+#[build]
+#rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+rustflags = ["-C", "target-cpu=native"]

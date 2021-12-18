@@ -3,3 +3,7 @@
 members = [
     "tree_walk_interpreter"
 ]
+
+[profile.release]
+incremental = true
+lto = true
